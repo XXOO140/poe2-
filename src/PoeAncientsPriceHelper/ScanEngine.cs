@@ -107,12 +107,12 @@ internal sealed class ScanEngine : IDisposable
         }
         
         // 根据配置选择 OCR 引擎
-        var usePaddleOcr = ocrEngine == "PaddleOCR";
+        var useRapidOcr = ocrEngine == "PaddleOCR"; // PaddleOCR 模式使用 RapidOCR
         var useAiRecognition = ocrEngine == "AI";
         Log($"OCR 引擎选择: {ocrEngine}");
         
-        Log($"OCR 模式: {(usePaddleOcr ? "PaddleOCR" : "Tesseract")}");
-        using var scanner = new OcrScanner(tessdataDir, Log, usePaddleOcr);
+        Log($"OCR 模式: {(useRapidOcr ? "RapidOCR (PaddleOCR 模型)" : "Tesseract")}");
+        using var scanner = new OcrScanner(tessdataDir, Log, useRapidOcr);
         var detector = new ListDetector();
         var sw = Stopwatch.StartNew();
         var slots = new List<RowSlot>();             // per-row accumulator: priced rows lock, misses keep retrying

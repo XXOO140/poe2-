@@ -12,7 +12,7 @@ internal sealed class OcrScanner : IDisposable
     // engines are single-threaded internally, but separate instances on separate threads are fine.
     private readonly TesseractEngine _engineCol;
     private readonly TesseractEngine _engineSparse;
-    private readonly PaddleOcrService? _paddleOcr;
+    private readonly RapidOcrService? _rapidOcr;
     private readonly Action<string>? _log;
     private readonly object _logLock = new();
     private const float MinConfidence = 10f;
@@ -22,31 +22,31 @@ internal sealed class OcrScanner : IDisposable
     // like "Void Flux" survive; OCR fragments are still mostly 1–3 char tokens.
     private const int MinWordLength = 2;  // 中文字符每个都是完整的"词"
     
-    // 是否使用 PaddleOCR
-    private readonly bool _usePaddleOcr;
+    // 是否使用 RapidOCR (PaddleOCR 模型)
+    private readonly bool _useRapidOcr;
 
-    public OcrScanner(string tessdataDir, Action<string>? log = null, bool usePaddleOcr = false)
+    public OcrScanner(string tessdataDir, Action<string>? log = null, bool useRapidOcr = false)
     {
         _log = log;
-        _usePaddleOcr = usePaddleOcr;
+        _useRapidOcr = useRapidOcr;
         
         // 初始化 Tesseract OCR
         _engineCol = new TesseractEngine(tessdataDir, "chi_sim+chi_tra+eng", EngineMode.Default);
         _engineSparse = new TesseractEngine(tessdataDir, "chi_sim+chi_tra+eng", EngineMode.Default);
         log?.Invoke("Tesseract OCR 引擎初始化: 简体中文+繁体中文+英文");
         
-        // 如果启用 PaddleOCR，初始化 PaddleOCR 服务
-        if (_usePaddleOcr)
+        // 如果启用 RapidOCR，初始化 RapidOCR 服务
+        if (_useRapidOcr)
         {
-            _paddleOcr = new PaddleOcrService(log);
-            if (_paddleOcr.IsAvailable)
+            _rapidOcr = new RapidOcrService(log);
+            if (_rapidOcr.IsAvailable)
             {
-                log?.Invoke("PaddleOCR 服务已启用");
+                log?.Invoke("RapidOCR 服务已启用 (PaddleOCR 模型)");
             }
             else
             {
-                log?.Invoke("[警告] PaddleOCR 不可用，将使用 Tesseract OCR");
-                _usePaddleOcr = false;
+                log?.Invoke("[警告] RapidOCR 不可用，将使用 Tesseract OCR");
+                _useRapidOcr = false;
             }
         }
     }
@@ -70,11 +70,11 @@ internal sealed class OcrScanner : IDisposable
         byte[] png = ToPng(upscaled);
         int height = regionBitmap.Height;
 
-        // 如果启用 PaddleOCR，使用原图（不反转）
-        if (_usePaddleOcr && _paddleOcr != null && _paddleOcr.IsAvailable)
+        // 如果启用 RapidOCR，使用原图（不反转）
+        if (_useRapidOcr && _rapidOcr != null && _rapidOcr.IsAvailable)
         {
             using var originalUpscaled = Upscale(cropped, UpscaleFactor);
-            return ScanWithPaddleOcr(originalUpscaled, height);
+            return ScanWithRapidOcr(originalUpscaled, height);
         }
         
         // 否则使用 Tesseract OCR（需要反转图片）
@@ -82,15 +82,15 @@ internal sealed class OcrScanner : IDisposable
     }
     
     /// <summary>
-    /// 使用 PaddleOCR 进行识别
+    /// 使用 RapidOCR 进行识别
     /// </summary>
-    private IReadOnlyList<OcrRow> ScanWithPaddleOcr(Bitmap image, int regionHeight)
+    private IReadOnlyList<OcrRow> ScanWithRapidOcr(Bitmap image, int regionHeight)
     {
         var rows = new List<OcrRow>();
         
         try
         {
-            var result = _paddleOcr!.RecognizeAsync(image).GetAwaiter().GetResult();
+            var result = _rapidOcr!.Recognize(image);
             
             if (result.Success && result.Items.Count > 0)
             {
@@ -106,16 +106,16 @@ internal sealed class OcrScanner : IDisposable
                     }
                 }
                 
-                _log?.Invoke($"PaddleOCR 识别到 {result.Items.Count} 行，过滤后 {rows.Count} 行");
+                _log?.Invoke($"RapidOCR 识别到 {result.Items.Count} 行，过滤后 {rows.Count} 行");
             }
             else
             {
-                _log?.Invoke($"PaddleOCR 识别失败或无结果: {result.Message}");
+                _log?.Invoke($"RapidOCR 识别失败或无结果: {result.Message}");
             }
         }
         catch (Exception ex)
         {
-            _log?.Invoke($"PaddleOCR 识别异常: {ex.Message}");
+            _log?.Invoke($"RapidOCR 识别异常: {ex.Message}");
         }
         
         return rows;
@@ -339,6 +339,6 @@ internal sealed class OcrScanner : IDisposable
     { 
         _engineCol.Dispose(); 
         _engineSparse.Dispose();
-        _paddleOcr?.Dispose();
+        _rapidOcr?.Dispose();
     }
 }
