@@ -319,7 +319,7 @@ internal sealed class ScanEngine : IDisposable
             {
                 exact = true;
             }
-            else if (row.NormalizedName.Length >= 4 &&
+            else if (row.NormalizedName.Length >= 3 &&
                      snapshot.Keys.Where(k => k.StartsWith(row.NormalizedName, StringComparison.Ordinal))
                                   .MinBy(k => k.Length) is { } prefixKey)
             {
@@ -331,6 +331,24 @@ internal sealed class ScanEngine : IDisposable
             {
                 entry = snapshot[fuzzy];
                 matchedKey = fuzzy;
+            }
+            // 特殊处理：去掉开头的数字和字母，只保留中文部分
+            else
+            {
+                var chineseOnly = Regex.Replace(row.NormalizedName, @"^[a-z0-9x]+\s*", "");
+                if (chineseOnly.Length >= 2 && chineseOnly != row.NormalizedName)
+                {
+                    if (snapshot.TryGetValue(chineseOnly, out entry))
+                    {
+                        exact = true;
+                        matchedKey = chineseOnly;
+                    }
+                    else if (BestFuzzy(snapshot, chineseOnly) is { } fuzzy2)
+                    {
+                        entry = snapshot[fuzzy2];
+                        matchedKey = fuzzy2;
+                    }
+                }
             }
 
             if (entry != null)
