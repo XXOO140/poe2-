@@ -75,22 +75,41 @@ internal sealed class ScanEngine : IDisposable
 
         Log($"START prices={_prices.ItemCount} icons={_icons.IsAvailable} region={_config.RegionRect}");
 
-        // 检查是否启用 PaddleOCR
+        // 检查 OCR 引擎配置
         var aiConfigPath = Path.Combine(AppContext.BaseDirectory, "ai_config.json");
-        var usePaddleOcr = false;
+        var ocrEngine = "Tesseract"; // 默认使用 Tesseract
+        Log($"检查 AI 配置: {aiConfigPath}");
         if (File.Exists(aiConfigPath))
         {
             try
             {
                 var aiConfigJson = File.ReadAllText(aiConfigPath);
+                Log($"AI 配置内容: {aiConfigJson}");
                 var aiConfig = Newtonsoft.Json.JsonConvert.DeserializeObject<AiConfig>(aiConfigJson);
                 if (aiConfig != null)
                 {
-                    usePaddleOcr = aiConfig.UsePaddleOcr;
+                    ocrEngine = aiConfig.OcrEngine ?? "Tesseract";
+                    Log($"AI 配置解析: OcrEngine={ocrEngine}, Enabled={aiConfig.Enabled}");
+                }
+                else
+                {
+                    Log("[警告] AI 配置解析结果为 null");
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log($"[错误] 读取 AI 配置失败: {ex.Message}");
+            }
         }
+        else
+        {
+            Log("[信息] AI 配置文件不存在，使用默认 Tesseract");
+        }
+        
+        // 根据配置选择 OCR 引擎
+        var usePaddleOcr = ocrEngine == "PaddleOCR";
+        var useAiRecognition = ocrEngine == "AI";
+        Log($"OCR 引擎选择: {ocrEngine}");
         
         Log($"OCR 模式: {(usePaddleOcr ? "PaddleOCR" : "Tesseract")}");
         using var scanner = new OcrScanner(tessdataDir, Log, usePaddleOcr);

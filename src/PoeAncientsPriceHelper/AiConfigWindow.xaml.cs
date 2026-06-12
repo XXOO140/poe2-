@@ -29,8 +29,20 @@ public partial class AiConfigWindow : Window
                 var config = Newtonsoft.Json.JsonConvert.DeserializeObject<AiConfig>(json);
                 if (config != null)
                 {
-                    EnableAiCheckBox.IsChecked = config.Enabled;
-                    UsePaddleOcrCheckBox.IsChecked = config.UsePaddleOcr;
+                    // 设置 OCR 引擎选择
+                    switch (config.OcrEngine)
+                    {
+                        case "PaddleOCR":
+                            PaddleOcrRadio.IsChecked = true;
+                            break;
+                        case "AI":
+                            AiRadio.IsChecked = true;
+                            break;
+                        default:
+                            TesseractRadio.IsChecked = true;
+                            break;
+                    }
+                    
                     ApiEndpointTextBox.Text = config.ApiEndpoint ?? "https://api.openai.com/v1/chat/completions";
                     ApiKeyPasswordBox.Password = config.ApiKey ?? "";
                     ModelTextBox.Text = config.Model ?? "gpt-4o-mini";
@@ -117,10 +129,16 @@ public partial class AiConfigWindow : Window
     {
         try
         {
+            // 确定选择的 OCR 引擎
+            string ocrEngine = "Tesseract";
+            if (PaddleOcrRadio.IsChecked == true) ocrEngine = "PaddleOCR";
+            if (AiRadio.IsChecked == true) ocrEngine = "AI";
+            
             var config = new AiConfig
             {
-                Enabled = EnableAiCheckBox.IsChecked ?? false,
-                UsePaddleOcr = UsePaddleOcrCheckBox.IsChecked ?? false,
+                Enabled = ocrEngine == "AI" || ocrEngine == "PaddleOCR",
+                UsePaddleOcr = ocrEngine == "PaddleOCR",
+                OcrEngine = ocrEngine,
                 ApiEndpoint = ApiEndpointTextBox.Text?.Trim() ?? "",
                 ApiKey = ApiKeyPasswordBox.Password?.Trim() ?? "",
                 Model = ModelTextBox.Text?.Trim() ?? "gpt-4o-mini"
@@ -130,7 +148,7 @@ public partial class AiConfigWindow : Window
             var json = Newtonsoft.Json.JsonConvert.SerializeObject(config, Newtonsoft.Json.Formatting.Indented);
             File.WriteAllText(configPath, json);
             
-            System.Windows.MessageBox.Show("配置已保存，重启程序后生效", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            System.Windows.MessageBox.Show($"配置已保存\nOCR 引擎: {ocrEngine}\n重启程序后生效", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
             DialogResult = true;
             Close();
         }

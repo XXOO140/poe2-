@@ -134,12 +134,20 @@ internal sealed class PaddleOcrService : IDisposable
         
         try
         {
+            // 将 base64 数据保存到临时文件
+            var tempDir = Path.Combine(AppContext.BaseDirectory, "temp");
+            if (!Directory.Exists(tempDir))
+                Directory.CreateDirectory(tempDir);
+            
+            var tempFile = Path.Combine(tempDir, $"ocr_{DateTime.Now:yyyyMMdd_HHmmss}.png");
+            File.WriteAllBytes(tempFile, Convert.FromBase64String(base64Image));
+            
             var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = _pythonPath,
-                    Arguments = $"\"{_scriptPath}\" \"{base64Image}\"",
+                    Arguments = $"\"{_scriptPath}\" \"{tempFile}\"",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -195,6 +203,14 @@ internal sealed class PaddleOcrService : IDisposable
                     tcs.SetResult(new PaddleOcrResult { Success = false, Message = $"解析输出失败: {ex.Message}" });
                 }
                 
+                // 清理临时文件
+                try
+                {
+                    if (File.Exists(tempFile))
+                        File.Delete(tempFile);
+                }
+                catch { }
+                
                 process.Dispose();
             };
             
@@ -212,6 +228,8 @@ internal sealed class PaddleOcrService : IDisposable
                 try
                 {
                     process.Kill();
+                    if (File.Exists(tempFile))
+                        File.Delete(tempFile);
                 }
                 catch { }
                 

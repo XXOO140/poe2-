@@ -293,6 +293,7 @@ internal sealed class AiConfig
     public string Model { get; set; } = "gpt-4o-mini";
     public bool Enabled { get; set; } = false;
     public bool UsePaddleOcr { get; set; } = false;
+    public string OcrEngine { get; set; } = "Tesseract"; // Tesseract, PaddleOCR, AI
 }
 
 /// <summary>
