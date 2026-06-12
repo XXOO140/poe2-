@@ -13,6 +13,7 @@ public partial class MainWindow : MetroWindow
     private PriceRepository? _repo;
     private IconCache? _icons;
     private ScanEngine? _engine;
+    private AiRecognitionService? _aiService;
     private readonly HttpClient _http = new();
     private bool _loading;
     
@@ -299,6 +300,14 @@ public partial class MainWindow : MetroWindow
         RebindButton.IsEnabled = false;
         RebindButton.Content = "请按键... (Esc 取消)";
         App.BeginHotkeyCapture(OnHotkeyCaptured);
+    }
+    
+    private void AiConfigButton_Click(object sender, RoutedEventArgs e)
+    {
+        Log("打开 AI 配置窗口");
+        var configWindow = new AiConfigWindow();
+        configWindow.Owner = this;
+        configWindow.ShowDialog();
     }
 
     private void OnHotkeyCaptured(App.CaptureOutcome outcome, KeyCode code)

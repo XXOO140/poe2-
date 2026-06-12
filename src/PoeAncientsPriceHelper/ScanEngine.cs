@@ -75,7 +75,25 @@ internal sealed class ScanEngine : IDisposable
 
         Log($"START prices={_prices.ItemCount} icons={_icons.IsAvailable} region={_config.RegionRect}");
 
-        using var scanner = new OcrScanner(tessdataDir, Log);
+        // 检查是否启用 PaddleOCR
+        var aiConfigPath = Path.Combine(AppContext.BaseDirectory, "ai_config.json");
+        var usePaddleOcr = false;
+        if (File.Exists(aiConfigPath))
+        {
+            try
+            {
+                var aiConfigJson = File.ReadAllText(aiConfigPath);
+                var aiConfig = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(aiConfigJson);
+                if (aiConfig != null && aiConfig.use_paddle_ocr != null)
+                {
+                    usePaddleOcr = (bool)aiConfig.use_paddle_ocr;
+                }
+            }
+            catch { }
+        }
+        
+        Log($"OCR 模式: {(usePaddleOcr ? "PaddleOCR" : "Tesseract")}");
+        using var scanner = new OcrScanner(tessdataDir, Log, usePaddleOcr);
         var detector = new ListDetector();
         var sw = Stopwatch.StartNew();
         var slots = new List<RowSlot>();             // per-row accumulator: priced rows lock, misses keep retrying

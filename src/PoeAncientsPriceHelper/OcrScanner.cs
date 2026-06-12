@@ -12,6 +12,7 @@ internal sealed class OcrScanner : IDisposable
     // engines are single-threaded internally, but separate instances on separate threads are fine.
     private readonly TesseractEngine _engineCol;
     private readonly TesseractEngine _engineSparse;
+    private readonly PaddleOcrService? _paddleOcr;
     private readonly Action<string>? _log;
     private readonly object _logLock = new();
     private const float MinConfidence = 10f;
@@ -20,14 +21,34 @@ internal sealed class OcrScanner : IDisposable
     // A real row must contain a word at least this long. 4 (not 5) so two-short-word names
     // like "Void Flux" survive; OCR fragments are still mostly 1–3 char tokens.
     private const int MinWordLength = 2;  // 中文字符每个都是完整的"词"
+    
+    // 是否使用 PaddleOCR
+    private readonly bool _usePaddleOcr;
 
-    public OcrScanner(string tessdataDir, Action<string>? log = null)
+    public OcrScanner(string tessdataDir, Action<string>? log = null, bool usePaddleOcr = false)
     {
-        // 支持简体中文、繁体中文和英文 OCR
+        _log = log;
+        _usePaddleOcr = usePaddleOcr;
+        
+        // 初始化 Tesseract OCR
         _engineCol = new TesseractEngine(tessdataDir, "chi_sim+chi_tra+eng", EngineMode.Default);
         _engineSparse = new TesseractEngine(tessdataDir, "chi_sim+chi_tra+eng", EngineMode.Default);
-        _log = log;
-        log?.Invoke("OCR 引擎初始化: 简体中文+繁体中文+英文");
+        log?.Invoke("Tesseract OCR 引擎初始化: 简体中文+繁体中文+英文");
+        
+        // 如果启用 PaddleOCR，初始化 PaddleOCR 服务
+        if (_usePaddleOcr)
+        {
+            _paddleOcr = new PaddleOcrService(log);
+            if (_paddleOcr.IsAvailable)
+            {
+                log?.Invoke("PaddleOCR 服务已启用");
+            }
+            else
+            {
+                log?.Invoke("[警告] PaddleOCR 不可用，将使用 Tesseract OCR");
+                _usePaddleOcr = false;
+            }
+        }
     }
 
     // Each row starts with ~3 cost-rune glyphs on the left, then "Nx ItemName". Cropping the
@@ -49,6 +70,61 @@ internal sealed class OcrScanner : IDisposable
         byte[] png = ToPng(upscaled);
         int height = regionBitmap.Height;
 
+        // 如果启用 PaddleOCR，使用 PaddleOCR 进行识别
+        if (_usePaddleOcr && _paddleOcr != null && _paddleOcr.IsAvailable)
+        {
+            return ScanWithPaddleOcr(upscaled, height);
+        }
+        
+        // 否则使用 Tesseract OCR
+        return ScanWithTesseract(png, height, upscaled);
+    }
+    
+    /// <summary>
+    /// 使用 PaddleOCR 进行识别
+    /// </summary>
+    private IReadOnlyList<OcrRow> ScanWithPaddleOcr(Bitmap image, int regionHeight)
+    {
+        var rows = new List<OcrRow>();
+        
+        try
+        {
+            var result = _paddleOcr!.RecognizeAsync(image).GetAwaiter().GetResult();
+            
+            if (result.Success && result.Items.Count > 0)
+            {
+                foreach (var item in result.Items)
+                {
+                    var normalizedRaw = NormalizeName(item.Text);
+                    var multiplier = ExtractMultiplier(normalizedRaw);
+                    var normalized = StripLeadingNoise(normalizedRaw);
+                    
+                    if (normalized.Length >= MinNameLength && HasLongWord(normalized, MinWordLength))
+                    {
+                        rows.Add(new OcrRow(normalized, item.Text.Trim(), item.CenterY, multiplier));
+                    }
+                }
+                
+                _log?.Invoke($"PaddleOCR 识别到 {result.Items.Count} 行，过滤后 {rows.Count} 行");
+            }
+            else
+            {
+                _log?.Invoke($"PaddleOCR 识别失败或无结果: {result.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _log?.Invoke($"PaddleOCR 识别异常: {ex.Message}");
+        }
+        
+        return rows;
+    }
+    
+    /// <summary>
+    /// 使用 Tesseract OCR 进行识别
+    /// </summary>
+    private IReadOnlyList<OcrRow> ScanWithTesseract(byte[] png, int height, Bitmap upscaled)
+    {
         // Two segmentation passes merged by row position, run CONCURRENTLY (one engine each) to
         // halve latency. SingleColumn reads ordinary lists cleanly; SparseText rescues panels whose
         // strong beveled row dividers make the other modes see only the top line. At each row keep
@@ -258,5 +334,10 @@ internal sealed class OcrScanner : IDisposable
         return s.Trim();
     }
 
-    public void Dispose() { _engineCol.Dispose(); _engineSparse.Dispose(); }
+    public void Dispose() 
+    { 
+        _engineCol.Dispose(); 
+        _engineSparse.Dispose();
+        _paddleOcr?.Dispose();
+    }
 }
