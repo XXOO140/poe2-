@@ -64,8 +64,24 @@
                    Text="支持 OpenAI 兼容协议，可使用其他 AI 服务"
                    Foreground="#666" FontSize="11" Margin="0,10,0,0"/>
 
+        <!-- 测试区域 -->
+        <Border Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2"
+                Background="#0F3460" BorderBrush="#2A4A6C" BorderThickness="1"
+                CornerRadius="4" Padding="10" Margin="0,10,0,0">
+            <StackPanel>
+                <TextBlock Text="AI 测试" Foreground="#4ecca3" FontSize="12" Margin="0,0,0,10"/>
+                <Button x:Name="TestAiButton" Content="测试 AI 识别"
+                        Background="#2A1A3A" Foreground="#AA66FF" BorderBrush="#553377"
+                        Padding="15,8" HorizontalAlignment="Left"
+                        Click="TestAiButton_Click"/>
+                <TextBlock x:Name="TestResultText" Text=""
+                           Foreground="#E0E0E0" FontSize="11" Margin="0,10,0,0"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
         <!-- 按钮 -->
-        <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2"
+        <StackPanel Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2"
                     Orientation="Horizontal" HorizontalAlignment="Right"
                     VerticalAlignment="Bottom">
             <Button Content="保存" Padding="20,8" Margin="0,0,10,0"

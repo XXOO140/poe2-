@@ -1,3 +1,5 @@
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.Windows;
 
 namespace PoeAncientsPriceHelper;
@@ -39,6 +41,76 @@ public partial class AiConfigWindow : Window
         {
             System.Windows.MessageBox.Show($"加载配置失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+    
+    private async void TestAiButton_Click(object sender, RoutedEventArgs e)
+    {
+        var endpoint = ApiEndpointTextBox.Text?.Trim();
+        var apiKey = ApiKeyPasswordBox.Password?.Trim();
+        var model = ModelTextBox.Text?.Trim();
+        
+        if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(apiKey))
+        {
+            TestResultText.Text = "请先填写 API 端点和密钥";
+            TestResultText.Foreground = System.Windows.Media.Brushes.Red;
+            return;
+        }
+        
+        TestResultText.Text = "正在测试...";
+        TestResultText.Foreground = System.Windows.Media.Brushes.Yellow;
+        TestAiButton.IsEnabled = false;
+        
+        try
+        {
+            // 创建测试图片 (简单的文字图片)
+            using var testImage = CreateTestImage();
+            
+            // 创建临时 AI 服务进行测试
+            using var testAiService = new AiRecognitionService();
+            testAiService.UpdateConfig(endpoint, apiKey, model ?? "gpt-4o-mini", true);
+            
+            var result = await testAiService.RecognizeItemsAsync(testImage);
+            
+            if (result.Success)
+            {
+                TestResultText.Text = $"✅ 测试成功!\n识别到 {result.Items.Count} 个物品:\n";
+                foreach (var item in result.Items)
+                {
+                    TestResultText.Text += $"- {item.Name} (x{item.Quantity})\n";
+                }
+                TestResultText.Foreground = System.Windows.Media.Brushes.LightGreen;
+            }
+            else
+            {
+                TestResultText.Text = $"❌ 测试失败: {result.Message}";
+                TestResultText.Foreground = System.Windows.Media.Brushes.Red;
+            }
+        }
+        catch (Exception ex)
+        {
+            TestResultText.Text = $"❌ 测试异常: {ex.Message}";
+            TestResultText.Foreground = System.Windows.Media.Brushes.Red;
+        }
+        finally
+        {
+            TestAiButton.IsEnabled = true;
+        }
+    }
+    
+    private Bitmap CreateTestImage()
+    {
+        // 创建一个简单的测试图片
+        var bitmap = new Bitmap(400, 200);
+        using var g = Graphics.FromImage(bitmap);
+        g.Clear(System.Drawing.Color.Black);
+        
+        using var font = new System.Drawing.Font("Microsoft YaHei", 16);
+        using var brush = new System.Drawing.SolidBrush(System.Drawing.Color.White);
+        
+        g.DrawString("2x 神圣石", font, brush, 50, 50);
+        g.DrawString("5x 混沌石", font, brush, 50, 100);
+        
+        return bitmap;
     }
     
     private void SaveButton_Click(object sender, RoutedEventArgs e)
