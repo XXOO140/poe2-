@@ -83,10 +83,10 @@ internal sealed class ScanEngine : IDisposable
             try
             {
                 var aiConfigJson = File.ReadAllText(aiConfigPath);
-                var aiConfig = Newtonsoft.Json.JsonConvert.DeserializeObject<dynamic>(aiConfigJson);
-                if (aiConfig != null && aiConfig.use_paddle_ocr != null)
+                var aiConfig = Newtonsoft.Json.JsonConvert.DeserializeObject<AiConfig>(aiConfigJson);
+                if (aiConfig != null)
                 {
-                    usePaddleOcr = (bool)aiConfig.use_paddle_ocr;
+                    usePaddleOcr = aiConfig.UsePaddleOcr;
                 }
             }
             catch { }
