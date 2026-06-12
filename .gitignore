@@ -1,0 +1,37 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+publish/
+
+## IDE
+.vs/
+.vscode/
+*.swp
+
+## OS
+Thumbs.db
+.DS_Store
+
+## Logs
+*.log
+scan_log.txt
+price_sync.log
+app.log
+
+## Cache
+prices_cache.json
+
+## Tokens
+tokens.json

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PoE2 物价追踪器</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+        }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        
+        /* 头部 */
+        .header {
+            background: linear-gradient(135deg, #16213e, #0f3460);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid #1a3a5c;
+        }
+        .header h1 {
+            font-size: 28px;
+            color: #e94560;
+            margin-bottom: 8px;
+        }
+        .header .subtitle { color: #888; font-size: 14px; }
+        
+        /* 状态栏 */
+        .status-bar {
+            display: flex;
+            gap: 16px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        .status-item {
+            background: rgba(255,255,255,0.05);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        .status-item .label { color: #888; }
+        .status-item .value { color: #4ecca3; font-weight: 600; }
+        
+        /* 搜索框 */
+        .search-box {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #1a3a5c;
+        }
+        .search-input-group {
+            display: flex;
+            gap: 12px;
+        }
+        .search-input-group input {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #2a4a6c;
+            background: #0f3460;
+            color: #eee;
+            font-size: 16px;
+            outline: none;
+        }
+        .search-input-group input:focus { border-color: #e94560; }
+        .search-input-group input::placeholder { color: #666; }
+        
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: #e94560; color: #fff; }
+        .btn-primary:hover { background: #c73e54; }
+        .btn-secondary { background: #2a4a6c; color: #eee; }
+        .btn-secondary:hover { background: #3a5a7c; }
+        .btn-sync { background: #4ecca3; color: #1a1a2e; }
+        .btn-sync:hover { background: #3dbc94; }
+        
+        /* 搜索提示 */
+        .search-tips {
+            margin-top: 12px;
+            font-size: 12px;
+            color: #666;
+        }
+        .search-tips span { color: #4ecca3; }
+        
+        /* 结果区域 */
+        .results-area {
+            background: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #1a3a5c;
+        }
+        .results-area h2 {
+            font-size: 18px;
+            color: #e94560;
+            margin-bottom: 16px;
+        }
+        
+        /* 物品卡片 */
+        .item-card {
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.2s;
+        }
+        .item-card:hover {
+            border-color: #4ecca3;
+            background: rgba(78, 204, 163, 0.05);
+        }
+        .item-name {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .item-name-en {
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 12px;
+        }
+        .item-prices {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .price-tag {
+            background: rgba(255,255,255,0.05);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .price-tag .currency { color: #888; }
+        .price-tag .amount { color: #4ecca3; font-weight: 600; }
+        .price-tag.divine .amount { color: #e94560; }
+        .price-tag.exalted .amount { color: #f0a500; }
+        .price-tag.chaos .amount { color: #888; }
+        
+        /* 物品列表 */
+        .items-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .items-list::-webkit-scrollbar { width: 6px; }
+        .items-list::-webkit-scrollbar-track { background: transparent; }
+        .items-list::-webkit-scrollbar-thumb { background: #2a4a6c; border-radius: 3px; }
+        
+        /* 加载动画 */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        .spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            border-top-color: #e94560;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* 分类标签 */
+        .category-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .category-tab {
+            padding: 6px 14px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.05);
+            color: #888;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .category-tab:hover { background: rgba(255,255,255,0.1); color: #eee; }
+        .category-tab.active { background: #e94560; color: #fff; }
+        
+        /* 响应式 */
+        @media (max-width: 600px) {
+            .container { padding: 12px; }
+            .header h1 { font-size: 22px; }
+            .search-input-group { flex-direction: column; }
+            .item-prices { flex-direction: column; }
+        }
+        
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+        
+        /* 无结果 */
+        .no-results {
+            text-align: center;
+            padding: 30px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>PoE2 物价追踪器</h1>
+            <div class="subtitle">本地物价数据库 - 自动从 poe.ninja 同步</div>
+            
+            <div class="status-bar">
+                <div class="status-item">
+                    <span class="label">上次同步: </span>
+                    <span class="value" id="lastSync">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">同步次数: </span>
+                    <span class="value" id="syncCount">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">物品数量: </span>
+                    <span class="value" id="totalItems">-</span>
+                </div>
+                <div class="status-item">
+                    <span class="label">神圣石汇率: </span>
+                    <span class="value" id="divineRate">-</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 搜索框 -->
+        <div class="search-box">
+            <div class="search-input-group">
+                <input type="text" id="searchInput" placeholder="输入物品名称 (中文/英文)..." autofocus>
+                <button class="btn btn-primary" onclick="searchItem()">搜索</button>
+                <button class="btn btn-sync" onclick="syncNow()">立即同步</button>
+            </div>
+            <div class="search-tips">
+                支持: <span>中文名</span> / <span>英文名</span> / <span>模糊搜索</span>
+                &nbsp;&nbsp;|&nbsp;&nbsp;示例: 神圣石, divine orb, 混沌石, chaos
+            </div>
+        </div>
+        
+        <!-- 搜索结果 -->
+        <div class="results-area" id="searchResults" style="display:none;">
+            <h2>搜索结果</h2>
+            <div id="resultsContent"></div>
+        </div>
+        
+        <!-- 物品列表 -->
+        <div class="results-area">
+            <h2>物价列表</h2>
+            
+            <div class="category-tabs">
+                <div class="category-tab active" onclick="filterCategory('')">全部</div>
+                <div class="category-tab" onclick="filterCategory('Currency')">通货</div>
+                <div class="category-tab" onclick="filterCategory('Runes')">符文</div>
+            </div>
+            
+            <div class="items-list" id="itemsList">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div style="margin-top:12px">加载中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentCategory = '';
+        
+        // 加载状态
+        async function loadStatus() {
+            try {
+                const resp = await fetch('/api/status');
+                const data = await resp.json();
+                
+                document.getElementById('lastSync').textContent = data.last_sync || '-';
+                document.getElementById('syncCount').textContent = data.sync_count || 0;
+                document.getElementById('totalItems').textContent = data.total_items || 0;
+                
+                const rates = data.rates || {};
+                const exalted = rates.exalted || 0;
+                document.getElementById('divineRate').textContent = exalted ? `1:${exalted.toFixed(1)}` : '-';
+            } catch (e) {
+                console.error('加载状态失败:', e);
+            }
+        }
+        
+        // 加载物品列表
+        async function loadItems(category = '') {
+            try {
+                const url = category ? `/api/items?category=${category}` : '/api/items';
+                const resp = await fetch(url);
+                const data = await resp.json();
+                
+                const list = document.getElementById('itemsList');
+                
+                if (!data.items || data.items.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <div class="icon">📦</div>
+                            <div>暂无数据，请先同步</div>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // 按神圣石价格排序
+                const sorted = data.items.sort((a, b) => (b.divine || 0) - (a.divine || 0));
+                
+                list.innerHTML = sorted.map(item => `
+                    <div class="item-card">
+                        <div class="item-name">${item.cn_name || item.en_name}</div>
+                        <div class="item-name-en">${item.en_name}</div>
+                        <div class="item-prices">
+                            <div class="price-tag divine">
+                                <span class="currency">神圣石: </span>
+                                <span class="amount">${formatPrice(item.divine)}</span>
+                            </div>
+                            <div class="price-tag exalted">
+                                <span class="currency">崇高石: </span>
+                                <span class="amount">${formatPrice(item.exalted)}</span>
+                            </div>
+                            <div class="price-tag chaos">
+                                <span class="currency">混沌石: </span>
+                                <span class="amount">${formatPrice(item.chaos)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('加载物品失败:', e);
+            }
+        }
+        
+        // 格式化价格
+        function formatPrice(value) {
+            if (!value || value === 0) return '-';
+            if (value >= 1000) return (value / 1000).toFixed(1) + 'k';
+            if (value >= 100) return value.toFixed(0);
+            if (value >= 1) return value.toFixed(2);
+            if (value >= 0.01) return value.toFixed(4);
+            return value.toFixed(6);
+        }
+        
+        // 搜索物品
+        async function searchItem() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) return;
+            
+            try {
+                const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+                const data = await resp.json();
+                
+                const resultsDiv = document.getElementById('searchResults');
+                const contentDiv = document.getElementById('resultsContent');
+                
+                resultsDiv.style.display = 'block';
+                
+                if (!data.results || data.results.length === 0) {
+                    contentDiv.innerHTML = '<div class="no-results">未找到匹配的物品</div>';
+                    return;
+                }
+                
+                contentDiv.innerHTML = data.results.map(item => `
+                    <div class="item-card">
+                        <div class="item-name">${item.cn_name || item.en_name}</div>
+                        <div class="item-name-en">${item.en_name}</div>
+                        <div class="item-prices">
+                            <div class="price-tag divine">
+                                <span class="currency">神圣石: </span>
+                                <span class="amount">${formatPrice(item.divine)}</span>
+                            </div>
+                            <div class="price-tag exalted">
+                                <span class="currency">崇高石: </span>
+                                <span class="amount">${formatPrice(item.exalted)}</span>
+                            </div>
+                            <div class="price-tag chaos">
+                                <span class="currency">混沌石: </span>
+                                <span class="amount">${formatPrice(item.chaos)}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('搜索失败:', e);
+            }
+        }
+        
+        // 立即同步
+        async function syncNow() {
+            const btn = document.querySelector('.btn-sync');
+            btn.textContent = '同步中...';
+            btn.disabled = true;
+            
+            try {
+                const resp = await fetch('/api/sync', { method: 'POST' });
+                const data = await resp.json();
+                
+                if (data.success) {
+                    alert(`同步完成! 共 ${data.count} 个物品`);
+                    loadStatus();
+                    loadItems(currentCategory);
+                } else {
+                    alert('同步失败: ' + (data.error || '未知错误'));
+                }
+            } catch (e) {
+                alert('同步失败: ' + e.message);
+            } finally {
+                btn.textContent = '立即同步';
+                btn.disabled = false;
+            }
+        }
+        
+        // 分类筛选
+        function filterCategory(category) {
+            currentCategory = category;
+            
+            // 更新标签样式
+            document.querySelectorAll('.category-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            loadItems(category);
+        }
+        
+        // 搜索框回车
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchItem();
+        });
+        
+        // 初始化
+        loadStatus();
+        loadItems();
+        
+        // 每60秒刷新状态
+        setInterval(loadStatus, 60000);
+    </script>
+</body>
+</html>
