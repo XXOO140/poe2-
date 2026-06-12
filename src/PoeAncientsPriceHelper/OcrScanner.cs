@@ -16,10 +16,10 @@ internal sealed class OcrScanner : IDisposable
     private readonly object _logLock = new();
     private const float MinConfidence = 10f;
     private const int UpscaleFactor = 2;
-    private const int MinNameLength = 4;
+    private const int MinNameLength = 2;  // 中文物品名较短，降低最小长度
     // A real row must contain a word at least this long. 4 (not 5) so two-short-word names
     // like "Void Flux" survive; OCR fragments are still mostly 1–3 char tokens.
-    private const int MinWordLength = 4;
+    private const int MinWordLength = 2;  // 中文字符每个都是完整的"词"
 
     public OcrScanner(string tessdataDir, Action<string>? log = null)
     {
@@ -244,6 +244,8 @@ internal sealed class OcrScanner : IDisposable
         var s = text.ToLowerInvariant();
         // 保留中文字符、英文字符、数字和空格
         s = Regex.Replace(s, @"[^\w\s\u4e00-\u9fff\u3400-\u4dbf]", " ");
+        // 合并中文字符之间的空格 (例如 "机 会 石" -> "机会石")
+        s = Regex.Replace(s, @"([\u4e00-\u9fff\u3400-\u4dbf])\s+([\u4e00-\u9fff\u3400-\u4dbf])", "$1$2");
         s = Regex.Replace(s, @"\s+", " ");
         return s.Trim();
     }
