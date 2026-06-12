@@ -19,14 +19,15 @@ def setup_paddleocr():
     try:
         from paddleocr import PaddleOCR
         # 使用中文模型，支持简体和繁体
+        # 使用新参数名
         ocr = PaddleOCR(
-            use_angle_cls=True,  # 使用方向分类器
+            use_textline_orientation=True,  # 使用方向分类器
             lang='ch',  # 中文模型
             show_log=False,  # 不显示日志
             use_gpu=False,  # 使用 CPU
-            det_model_dir=None,  # 使用默认模型
-            rec_model_dir=None,
-            cls_model_dir=None
+            text_detection_model_dir=None,  # 使用默认模型
+            text_recognition_model_dir=None,
+            textline_orientation_model_dir=None
         )
         return ocr
     except Exception as e:
@@ -78,42 +79,12 @@ def recognize_image(ocr, image_path):
             'items': []
         }
 
-def recognize_base64(ocr, base64_data):
-    """识别 base64 编码的图片"""
-    try:
-        import tempfile
-        
-        # 解码 base64 数据
-        image_data = base64.b64decode(base64_data)
-        
-        # 保存到临时文件
-        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
-            tmp.write(image_data)
-            tmp_path = tmp.name
-        
-        # 识别图片
-        result = recognize_image(ocr, tmp_path)
-        
-        # 删除临时文件
-        try:
-            os.unlink(tmp_path)
-        except:
-            pass
-        
-        return result
-    except Exception as e:
-        return {
-            'success': False,
-            'error': str(e),
-            'items': []
-        }
-
 def main():
     """主函数"""
     if len(sys.argv) < 2:
         print(json.dumps({
             'success': False,
-            'error': '用法: python paddle_ocr.py <image_path_or_base64>',
+            'error': '用法: python paddle_ocr.py <image_path>',
             'items': []
         }))
         sys.exit(1)
@@ -123,13 +94,15 @@ def main():
     # 初始化 PaddleOCR
     ocr = setup_paddleocr()
     
-    # 判断输入是文件路径还是 base64 数据
+    # 判断输入是文件路径
     if os.path.exists(input_data):
-        # 输入是文件路径
         result = recognize_image(ocr, input_data)
     else:
-        # 输入是 base64 数据
-        result = recognize_base64(ocr, input_data)
+        result = {
+            'success': False,
+            'error': f'文件不存在: {input_data}',
+            'items': []
+        }
     
     # 输出结果
     print(json.dumps(result, ensure_ascii=False))
