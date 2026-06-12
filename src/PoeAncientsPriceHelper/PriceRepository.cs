@@ -30,7 +30,8 @@ internal sealed class PriceRepository : IDisposable
     public bool IsSyncing { get; private set; } = false;
     
     // 日志
-    private static readonly string LogFilePath = Path.Combine(AppContext.BaseDirectory, "price_sync.log");
+    private static readonly string LogDir = Path.Combine(AppContext.BaseDirectory, "logs");
+    private static readonly string LogFilePath = Path.Combine(LogDir, "price_sync.log");
     private static readonly object LogLock = new object();
 
     public IReadOnlyDictionary<string, PriceEntry> Prices => _prices;
@@ -68,6 +69,8 @@ internal sealed class PriceRepository : IDisposable
         {
             lock (LogLock)
             {
+                if (!Directory.Exists(LogDir))
+                    Directory.CreateDirectory(LogDir);
                 File.AppendAllText(LogFilePath, logLine + Environment.NewLine);
             }
         }

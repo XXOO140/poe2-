@@ -17,7 +17,8 @@ public partial class MainWindow : MetroWindow
     private bool _loading;
     
     // 日志
-    private static readonly string LogFilePath = Path.Combine(AppContext.BaseDirectory, "app.log");
+    private static readonly string LogDir = Path.Combine(AppContext.BaseDirectory, "logs");
+    private static readonly string LogFilePath = Path.Combine(LogDir, "app.log");
     private static readonly object LogLock = new object();
 
     // F4 (calibrate) stays a Win32 hotkey — it's a rare, full-screen action that benefits from being
@@ -67,6 +68,8 @@ public partial class MainWindow : MetroWindow
         {
             lock (LogLock)
             {
+                if (!Directory.Exists(LogDir))
+                    Directory.CreateDirectory(LogDir);
                 File.AppendAllText(LogFilePath, logLine + Environment.NewLine);
             }
         }

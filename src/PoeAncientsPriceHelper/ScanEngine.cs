@@ -60,7 +60,10 @@ internal sealed class ScanEngine : IDisposable
 
     private async Task RunLoopAsync(CancellationToken ct)
     {
-        _logPath = Path.Combine(AppContext.BaseDirectory, "scan_log.txt");
+        var logDir = Path.Combine(AppContext.BaseDirectory, "logs");
+        if (!Directory.Exists(logDir))
+            Directory.CreateDirectory(logDir);
+        _logPath = Path.Combine(logDir, "scan_log.txt");
         File.WriteAllText(_logPath, "");
 
         var tessdataDir = Path.Combine(AppContext.BaseDirectory, "tessdata");
